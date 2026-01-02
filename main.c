@@ -8,21 +8,8 @@
 #include "types/user.h"
 #include "types/elevator.h"
 
-void* userRoutine(void* arg) {
-    UserState* state = (UserState*)arg;
-    ElevatorState* elevatorState = state->elevatorState;
-
-    pthread_mutex_lock(&elevatorState->mutex);
-
-    while (state->destinationFloor != elevatorState->currentFloor) {
-        pthread_cond_wait(&elevatorState->onDoorsOpen, &elevatorState->mutex);
-    }
-    printf("un utilisateur est heureux de descendre à l'étage %d\n", elevatorState->currentFloor);
-    pthread_mutex_unlock(&elevatorState->mutex);
-}
-
-void* elevatorRoutine(void* arg) {
-    ElevatorState* state = (ElevatorState*)arg;
+void *elevatorRoutine(void *arg) {
+    ElevatorState *state = (ElevatorState *) arg;
 
     pthread_mutex_lock(&state->mutex);
 
@@ -41,13 +28,14 @@ void* elevatorRoutine(void* arg) {
         if (nearestRequestedFloor < 0) {
             printf("on a pas de requête\n");
             state->direction = 0;
-            sleep(1/60);
+            usleep(1000 / 60);
             printf("on dort\n");
-            continue;
+            break;
         }
 
         if (nearestRequestedFloor == state->currentFloor) {
-            printf("la requete la plus proche est l'étage actuel (request: %d, current: %d)\n", nearestRequestedFloor, state->currentFloor);
+            printf("la requete la plus proche est l'étage actuel (request: %d, current: %d)\n", nearestRequestedFloor,
+                   state->currentFloor);
             state->requests[nearestRequestedFloor] = false;
             printf("on consomme la requête\n");
             state->areDoorsOpen = true;
@@ -57,7 +45,7 @@ void* elevatorRoutine(void* arg) {
 
             pthread_mutex_unlock(&state->mutex);
             printf("on attend\n");
-            sleep(state->doorOpeningDuration);
+            usleep(state->doorOpeningDuration);
             pthread_mutex_lock(&state->mutex);
 
             state->areDoorsOpen = false;
@@ -69,11 +57,27 @@ void* elevatorRoutine(void* arg) {
         state->direction = nearestRequestedFloor - state->currentFloor > 0 ? 1 : -1;
         printf("on calcule la direction : %d\n", state->direction);
         printf("on va au prochain étage\n");
-        sleep(state->movingDuration);
+        usleep(state->movingDuration);
         state->currentFloor = state->currentFloor + 1;
 
         pthread_mutex_unlock(&state->mutex);
     }
+}
+
+void *userRoutine(void *arg) {
+    UserState *state = (UserState *) arg;
+    ElevatorState *elevatorState = state->elevatorState;
+
+    printf("user before mutex lock\n");
+
+    pthread_mutex_lock(&elevatorState->mutex);
+
+    while (elevatorState->areDoorsOpen && state->destinationFloor != elevatorState->currentFloor) {
+        pthread_cond_wait(&elevatorState->onDoorsOpen, &elevatorState->mutex);
+    }
+
+    printf("un utilisateur est heureux de descendre à l'étage %d\n", elevatorState->currentFloor);
+    pthread_mutex_unlock(&elevatorState->mutex);
 }
 
 int main(void) {
@@ -81,8 +85,8 @@ int main(void) {
         .currentFloor = 0,
         .direction = 0,
         .areDoorsOpen = false,
-        .doorOpeningDuration = 3,
-        .movingDuration = 5,
+        .doorOpeningDuration = 2000,
+        .movingDuration = 3000,
         .mutex = PTHREAD_MUTEX_INITIALIZER,
         .onDoorsOpen = PTHREAD_COND_INITIALIZER,
         .requests[0] = true,
@@ -93,14 +97,15 @@ int main(void) {
     };
 
     pthread_t elevatorThread;
-    pthread_create(&elevatorThread, NULL, elevatorRoutine, &elevatorState);
+    pthread_create(&elevatorThread, nullptr, elevatorRoutine, &elevatorState);
 
+    constexpr unsigned int userNbr = 4;
 
-    UserState users[2] = {
+    UserState users[userNbr] = {
         {
             .happenTime = 0,
             .floor = 4,
-            .destinationFloor = 1,
+            .destinationFloor = 3,
             .isInElevator = false,
             .elevatorState = &elevatorState,
         },
@@ -110,21 +115,35 @@ int main(void) {
             .destinationFloor = 0,
             .isInElevator = false,
             .elevatorState = &elevatorState,
+        },
+        {
+            .happenTime = 1,
+            .floor = 2,
+            .destinationFloor = 3,
+            .isInElevator = false,
+            .elevatorState = &elevatorState,
+        },
+        {
+            .happenTime = 1,
+            .floor = 2,
+            .destinationFloor = 3,
+            .isInElevator = false,
+            .elevatorState = &elevatorState,
         }
     };
 
-    pthread_t userThreads[2];
+    pthread_t userThreads[userNbr];
 
-    for (int i = 0; i < sizeof(users); i++) {
+    for (int i = 0; i < userNbr; i++) {
         pthread_t thread;
         pthread_create(&thread, nullptr, userRoutine, &users[i]);
         userThreads[i] = thread;
     }
 
-    for (int i = 0; i < sizeof(userThreads); ++i) {
+    for (int i = 0; i < userNbr; ++i) {
         pthread_join(userThreads[i], nullptr);
     }
 
-    pthread_join(elevatorThread, NULL);
+    pthread_join(elevatorThread, nullptr);
     return 0;
 }

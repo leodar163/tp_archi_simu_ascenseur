@@ -13,8 +13,8 @@ typedef struct {
     int direction;
     bool requests[FLOOR_NBR];
     bool areDoorsOpen;
-    float doorOpeningDuration;
-    float movingDuration;
+    unsigned int doorOpeningDuration;
+    unsigned int movingDuration;
 
     pthread_mutex_t mutex;
     pthread_cond_t onDoorsOpen;
