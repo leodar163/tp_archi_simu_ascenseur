@@ -16,8 +16,11 @@ void *elevatorRoutine(void *arg) {
     while (state->isRunning) {
         int nearestRequestedFloor = INT_MIN + 2 + FLOOR_NBR;
 
-        printf("on trouve la requête la plus proche\n");
+        printf("l'ascenseur est à l'étage %d\n", state->currentFloor);
+        printf("l'ascenseur vérfie s'il on lui a demandé un étage\n");
 
+        // On veut d'abord trouver la requête la plus proche dans la direction actuelle
+        // avant de le faire pour tous les étages
         if (state->direction != 0) {
             for (int floor = state->currentFloor; floor < FLOOR_NBR && floor >= 0; floor += state->direction) {
                 if (state->requests[floor] == true) {
@@ -28,6 +31,8 @@ void *elevatorRoutine(void *arg) {
             }
         }
 
+        // Si on a trouvé aucune requête dans la direction actuelle ou que l'ascenseur est à l'arrêt,
+        // on cherche la requête la plus proche parmi tous les étages
         if (nearestRequestedFloor < 0) {
             for (int floor = 0; floor < FLOOR_NBR; floor++) {
                 if (state->requests[floor] == true) {
@@ -38,40 +43,46 @@ void *elevatorRoutine(void *arg) {
             }
         }
 
+        // Si aucune requête n'a été trouvé, on met l'ascenseur à l'arrêt et on attend/on dort
         if (nearestRequestedFloor < 0) {
             pthread_mutex_unlock(&state->mutex);
-            printf("on a pas de requête\n");
+            printf("l'ascenseur n'a aucune requête\n");
             state->direction = 0;
             usleep(100000);
-            printf("on dort\n");
+            printf("l'ascenseur dort\n");
             pthread_mutex_lock(&state->mutex);
             continue;
         }
 
+
+        printf("l'ascenseur veut se rendre à l'étage %d\n", nearestRequestedFloor);
+
+        // Si on a trouvé une requête, on vérifie qu'on est pas déjà à l'étage demandé
+        // Si oui, on ouvre les portes et on notifie les utilisateurs que l'ascenseur est arrivé à un étage
         if (nearestRequestedFloor == state->currentFloor) {
-            printf("la requete la plus proche est l'étage actuel (request: %d, current: %d)\n", nearestRequestedFloor,
-                   state->currentFloor);
+            printf("l'étage est déjà l'étage actuel\n");
             state->requests[nearestRequestedFloor] = false;
-            printf("on consomme la requête\n");
+
             state->areDoorsOpen = true;
-            printf("on ouvre les portes \n");
+            printf("l'ascenseur ouvre les portes \n");
 
             pthread_cond_broadcast(&state->onDoorsOpen);
 
             pthread_mutex_unlock(&state->mutex);
-            printf("on attend\n");
+            printf("l'ascenseur attend %fs\n", (float)state->doorOpeningDuration/1000.0f);
             usleep(state->doorOpeningDuration);
             pthread_mutex_lock(&state->mutex);
 
             state->areDoorsOpen = false;
-            printf("on ferme les portes\n");
+            printf("l'ascenseur ferme les portes\n");
             continue;
         }
 
-        printf("la requête la plus proche n'est pas l'étage actuel\n");
+        // Si l'étage trouvé n'est pas l'étage actuel, on  identifie la direction
+        // et on se déplace d'un étage dans cette direction
         state->direction = nearestRequestedFloor - state->currentFloor > 0 ? 1 : -1;
-        printf("on calcule la direction : %d\n", state->direction);
-        printf("on va au prochain étage\n");
+        printf(state->direction > 0 ? "l'ascenseur monte d'un étage\n" : "l'ascenseur déscend d'un étage\n");
+
         usleep(state->movingDuration);
         state->currentFloor = state->currentFloor + state->direction;
 
@@ -91,7 +102,7 @@ void *userRoutine(void *arg) {
         pthread_cond_wait(&elevatorState->onDoorsOpen, &elevatorState->mutex);
 
         if (elevatorState->areDoorsOpen && elevatorState->currentFloor == state->startingFloor) {
-            printf("un utilisateur monte à l'étage %d et demande l'étage %d\n", elevatorState->currentFloor,
+            printf("un utilisateur rentre à l'étage %d et demande l'étage %d\n", elevatorState->currentFloor,
                    state->destinationFloor);
             elevatorState->requests[state->destinationFloor] = true;
             state->isInElevator = true;
@@ -152,6 +163,7 @@ int main(void) {
     unsigned int userInstantiatedNumber = 0;
     bool instantiatedUsers[userNbr] = {false};
 
+    // On parcourt toutes les frames le tableau des utilisateurs pour vérifier s'il faut en instancier un
     while (userInstantiatedNumber < userNbr) {
         for (int i = 0; i < userNbr; i++) {
             if (instantiatedUsers[i] == true || users[i].happenTime > timer) continue;
