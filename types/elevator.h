@@ -16,6 +16,8 @@ typedef struct {
     unsigned int doorOpeningDuration;
     unsigned int movingDuration;
 
+    bool isRunning;
+
     pthread_mutex_t mutex;
     pthread_cond_t onDoorsOpen;
 } ElevatorState;

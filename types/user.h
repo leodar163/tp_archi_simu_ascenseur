@@ -10,7 +10,7 @@
 #define TP_ARCHI_SIMU_ASCENSEUR_USER_H
 typedef struct {
     float happenTime;
-    int floor;
+    int startingFloor;
     int destinationFloor;
     bool isInElevator;
 
