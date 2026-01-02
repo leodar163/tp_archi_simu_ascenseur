@@ -39,10 +39,12 @@ void *elevatorRoutine(void *arg) {
         }
 
         if (nearestRequestedFloor < 0) {
+            pthread_mutex_unlock(&state->mutex);
             printf("on a pas de requête\n");
             state->direction = 0;
-            usleep(1000);
+            usleep(100000);
             printf("on dort\n");
+            pthread_mutex_lock(&state->mutex);
             continue;
         }
 
@@ -136,34 +138,33 @@ int main(void) {
             .elevatorState = &elevatorState,
         },
         {
-            .happenTime = 1,
+            .happenTime = 1000,
             .startingFloor = 2,
             .destinationFloor = 1,
             .isInElevator = false,
             .elevatorState = &elevatorState,
         },
-        // {
-        //     .happenTime = 1,
-        //     .floor = 2,
-        //     .startingFloor = 3,
-        //     .isInElevator = false,
-        //     .elevatorState = &elevatorState,
-        // },
-        // {
-        //     .happenTime = 1,
-        //     .floor = 2,
-        //     .startingFloor = 3,
-        //     .isInElevator = false,
-        //     .elevatorState = &elevatorState,
-        // }
     };
 
     pthread_t userThreads[userNbr];
 
-    for (int i = 0; i < userNbr; i++) {
-        pthread_t thread;
-        pthread_create(&thread, nullptr, userRoutine, &users[i]);
-        userThreads[i] = thread;
+    int timer = 0;
+    unsigned int userInstantiatedNumber = 0;
+    bool instantiatedUsers[userNbr] = {false};
+
+    while (userInstantiatedNumber < userNbr) {
+        for (int i = 0; i < userNbr; i++) {
+            if (instantiatedUsers[i] == true || users[i].happenTime > timer) continue;
+
+            pthread_t thread;
+            printf("un utilisateur arrive à l'étage %d à %fs\n", users[i].startingFloor, (float)timer / 1000.0f);
+            pthread_create(&thread, nullptr, userRoutine, &users[i]);
+            userThreads[i] = thread;
+            userInstantiatedNumber++;
+            instantiatedUsers[i] = true;
+        }
+        usleep(100000/60);
+        timer += 1000/60;
     }
 
     for (int i = 0; i < userNbr; ++i) {
