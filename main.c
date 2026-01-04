@@ -127,6 +127,8 @@ void *userRoutine(void *arg) {
 }
 
 int main(void) {
+    enum { USER_NBR = 3 }; 
+
     ElevatorState elevatorState = {
         .currentFloor = 0,
         .direction = 0,
@@ -142,9 +144,7 @@ int main(void) {
     pthread_t elevatorThread;
     pthread_create(&elevatorThread, NULL, elevatorRoutine, &elevatorState);
 
-    const unsigned int userNbr = 2;
-
-    UserState users[userNbr] = {
+    UserState users[USER_NBR] = {
         {
             .happenTime = 0,
             .startingFloor = 4,
@@ -153,23 +153,30 @@ int main(void) {
             .elevatorState = &elevatorState,
         },
         {
-            .happenTime = 1000,
+            .happenTime = 10000,
             .startingFloor = 2,
             .destinationFloor = 1,
             .isInElevator = false,
             .elevatorState = &elevatorState,
         },
+        {
+            .happenTime = 1000,
+            .startingFloor = 2,
+            .destinationFloor = 4,
+            .isInElevator = false,
+            .elevatorState = &elevatorState,
+        },
     };
 
-    pthread_t userThreads[userNbr];
+    pthread_t userThreads[USER_NBR];
 
-    int timer = 0;
-    unsigned int userInstantiatedNumber = 0;
-    bool instantiatedUsers[userNbr] = {false};
+    unsigned int timer = 0;
+    size_t userInstantiatedNumber = 0;
+    bool instantiatedUsers[USER_NBR] = {false};
 
     // On parcourt toutes les frames le tableau des utilisateurs pour vérifier s'il faut en instancier un
-    while (userInstantiatedNumber < userNbr) {
-        for (int i = 0; i < userNbr; i++) {
+    while (userInstantiatedNumber < USER_NBR) {
+        for (size_t i = 0; i < USER_NBR; i++) {
             if (instantiatedUsers[i] == true || users[i].happenTime > timer) continue;
 
             pthread_t thread;
@@ -183,10 +190,11 @@ int main(void) {
         timer += 1000/60;
     }
 
-    for (int i = 0; i < userNbr; ++i) {
+    for (size_t i = 0; i < USER_NBR; ++i) {
         pthread_join(userThreads[i], NULL);
     }
 
+    elevatorState.isRunning = false;
     pthread_join(elevatorThread, NULL);
     return 0;
 }
