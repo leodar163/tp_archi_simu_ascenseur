@@ -127,8 +127,6 @@ void *userRoutine(void *arg) {
 }
 
 int main(void) {
-    enum { USER_NBR = 3 }; 
-
     ElevatorState elevatorState = {
         .currentFloor = 0,
         .direction = 0,
@@ -144,39 +142,41 @@ int main(void) {
     pthread_t elevatorThread;
     pthread_create(&elevatorThread, NULL, elevatorRoutine, &elevatorState);
 
-    UserState users[USER_NBR] = {
-        {
-            .happenTime = 0,
-            .startingFloor = 4,
-            .destinationFloor = 3,
-            .isInElevator = false,
-            .elevatorState = &elevatorState,
-        },
-        {
-            .happenTime = 10000,
-            .startingFloor = 2,
-            .destinationFloor = 1,
-            .isInElevator = false,
-            .elevatorState = &elevatorState,
-        },
-        {
-            .happenTime = 1000,
-            .startingFloor = 2,
-            .destinationFloor = 4,
-            .isInElevator = false,
-            .elevatorState = &elevatorState,
-        },
-    };
+    // Lecture du fichier users.txt
+    FILE *file = fopen("users.txt", "r");
+    if (file == NULL) {
+        fprintf(stderr, "Erreur: impossible d'ouvrir users.txt\n");
+        return 1;
+    }
 
-    pthread_t userThreads[USER_NBR];
+    // Compter le nombre d'utilisateurs
+    size_t userNbr = 0;
+    char line[256];
+    while (fgets(line, sizeof(line), file)) {
+        userNbr++;
+    }
+    rewind(file);
+
+    // Allouer et remplir le tableau d'utilisateurs
+    UserState *users = malloc(userNbr * sizeof(UserState));
+    pthread_t *userThreads = malloc(userNbr * sizeof(pthread_t));
+    bool *instantiatedUsers = malloc(userNbr * sizeof(bool));
+    
+    for (size_t i = 0; i < userNbr; i++) {
+        fgets(line, sizeof(line), file);
+        sscanf(line, "%u,%d,%d", &users[i].happenTime, &users[i].startingFloor, &users[i].destinationFloor);
+        users[i].isInElevator = false;
+        users[i].elevatorState = &elevatorState;
+        instantiatedUsers[i] = false;
+    }
+    fclose(file);
 
     unsigned int timer = 0;
     size_t userInstantiatedNumber = 0;
-    bool instantiatedUsers[USER_NBR] = {false};
 
     // On parcourt toutes les frames le tableau des utilisateurs pour vérifier s'il faut en instancier un
-    while (userInstantiatedNumber < USER_NBR) {
-        for (size_t i = 0; i < USER_NBR; i++) {
+    while (userInstantiatedNumber < userNbr) {
+        for (size_t i = 0; i < userNbr; i++) {
             if (instantiatedUsers[i] == true || users[i].happenTime > timer) continue;
 
             pthread_t thread;
@@ -190,11 +190,16 @@ int main(void) {
         timer += 1000/60;
     }
 
-    for (size_t i = 0; i < USER_NBR; ++i) {
+    for (size_t i = 0; i < userNbr; ++i) {
         pthread_join(userThreads[i], NULL);
     }
 
     elevatorState.isRunning = false;
     pthread_join(elevatorThread, NULL);
+    
+    free(users);
+    free(userThreads);
+    free(instantiatedUsers);
+    
     return 0;
 }
