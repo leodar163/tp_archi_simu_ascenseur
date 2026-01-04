@@ -2,6 +2,7 @@
 // Created by leobg on 01/01/2026.
 //
 
+#include <stdbool.h>
 #include <pthread.h>
 
 #ifndef TP_ARCHI_SIMU_ASCENSEUR_ELEVATOR_H

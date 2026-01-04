@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <stdlib.h>
-#include <math.h>
+#include <stdbool.h>
 
 #include "types/user.h"
 #include "types/elevator.h"
@@ -88,6 +88,8 @@ void *elevatorRoutine(void *arg) {
 
         pthread_mutex_unlock(&state->mutex);
     }
+
+    return NULL;
 }
 
 void *userRoutine(void *arg) {
@@ -120,6 +122,8 @@ void *userRoutine(void *arg) {
         }
     }
     pthread_mutex_unlock(&elevatorState->mutex);
+
+    return NULL;
 }
 
 int main(void) {
@@ -136,9 +140,9 @@ int main(void) {
     };
 
     pthread_t elevatorThread;
-    pthread_create(&elevatorThread, nullptr, elevatorRoutine, &elevatorState);
+    pthread_create(&elevatorThread, NULL, elevatorRoutine, &elevatorState);
 
-    constexpr unsigned int userNbr = 2;
+    const unsigned int userNbr = 2;
 
     UserState users[userNbr] = {
         {
@@ -170,7 +174,7 @@ int main(void) {
 
             pthread_t thread;
             printf("un utilisateur arrive à l'étage %d à %fs\n", users[i].startingFloor, (float)timer / 1000.0f);
-            pthread_create(&thread, nullptr, userRoutine, &users[i]);
+            pthread_create(&thread, NULL, userRoutine, &users[i]);
             userThreads[i] = thread;
             userInstantiatedNumber++;
             instantiatedUsers[i] = true;
@@ -180,9 +184,9 @@ int main(void) {
     }
 
     for (int i = 0; i < userNbr; ++i) {
-        pthread_join(userThreads[i], nullptr);
+        pthread_join(userThreads[i], NULL);
     }
 
-    pthread_join(elevatorThread, nullptr);
+    pthread_join(elevatorThread, NULL);
     return 0;
 }
